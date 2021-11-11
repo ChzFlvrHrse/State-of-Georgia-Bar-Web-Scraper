@@ -1,1 +1,125 @@
+import requests
+from bs4 import BeautifulSoup
+from time import sleep
+from selenium import webdriver
+import numpy as np
+import csv
+
+base_url = 'https://www.gabar.org'
+
+headers = {
+    'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/'
+}
+
+
+def get_links():
+  links = []
+  for i in range(1, 51, 25):
+    r = requests.get(f'https://www.gabar.org/membersearchresults.cfm?', headers=headers)
+    soup = BeautifulSoup(r.content, 'lxml')
+    lawyer_list = soup.find_all('div',attrs={'class': 'item-section'})
+    for lawyer in lawyer_list:
+      for link in lawyer.find_all('a', href=True):
+        links.append(base_url + link['href'])
+
+  lawyer_links = []
+  for l in links:
+    r = requests.get(l, headers=headers)
+    soup = BeautifulSoup(r.content, 'lxml')
+    status = str(soup.find('font'))
+    if 'Red' in status:
+      continue
+    elif 'Resigned' in status:
+      continue
+    elif 'Emeritus' in status:
+      continue
+    elif 'Deceased' in status:
+      continue
+    else:
+      lawyer_links.append(l)
+
+  return lawyer_links
+
+print(len(get_links()))
+
+def get_law(get_links):
+  for links in get_links:
+    r = requests.get(links, headers=headers)
+    soup = BeautifulSoup(r.content, 'lxml')
+
+    name = soup.find('div', attrs='course-id').text
+    info = soup.find_all('table')
+    # info lengths varies, last index is not needed
+    contact = info[0].text
+    additional = info[1].text
+    school = additional[ :additional.find('Click') - 1]
+    
+
+    data = ''
+
+    data += name + '\n' + '\n'
+    for e in contact:
+      if 'Email' in contact and 'com' in contact:
+        data += contact[ :6].replace('\n', '') + ': ' +  contact[7: contact.find('com') + 3] + '\n'
+        break
+      elif 'Email' in contact and 'org' in contact:
+        data += contact[ :6].replace('\n', '') + ': ' +  contact[7: contact.find('org') + 3] + '\n'
+        break
+      elif 'Email' in contact and 'gov' in contact:
+        data += contact[ :6].replace('\n', '') + ': ' +  contact[7: contact.find('gov') + 3] + '\n'
+        break
+      else:
+        break
+
+    for p in contact:
+      if 'Phone' in contact and '(' == contact[contact.find('Phone') + 5: contact.find('Phone') + 6]:
+        data += (contact[contact.find('Phone') : contact.find('Phone') + 5]) + ': ' + contact[contact.find('Phone') + 5 : contact.find('Phone') + 19] + '\n'
+        break
+      else:
+        break
+
+    for f in contact:
+      if 'Fax' in contact and '(' == contact[contact.find('Fax') + 3: contact.find('Fax') + 4]:
+        data += contact[contact.find('Fax') : contact.find('Fax') + 3] + ': '+  contact[contact.find('Fax') + 3 : contact.find('Fax') + 17] + '\n'
+        break
+      else:
+        break
+        # disciplinary action
+    for d in school:
+      if 'Public Discipline' in school: 
+        data += school[school.find('Public') : school.find('Admit') - 18] + ': ' + school[school.find('Public') + 19 : school.find('Admit') - 2] + '\n'
+        break
+      else:
+        break
+        # admit date
+    for a in school:
+      if 'Admit' in school:
+        data += school[school.find('Admit') : school.find('Admit') + 10] + ': ' + school[school.find('Date') + 4 : school.find('Date') + 14] + '\n'
+        break
+      else:
+        continue
+        # law school
+    for s in school:
+      if 'School' in school and 'Member of' in school:
+        data += school[school.find('Law') : school.find('Law') + 10] + ': ' + school[school.find('School') + 6 : school.find('Member of')] 
+        break
+      elif 'School' in school:
+        data += school[school.find('Law') : school.find('Law') + 10] + ': ' + school[school.find('School') + 6 : ]
+        break
+      else:
+        break
+
+    for m in school:
+      if 'Member of' in school:
+        data += school[school.find('Member of'): school.find('sections') + 9] + ' ' + school[school.find('sections:') + 10 : -1]
+        break
+      else:
+        break
+
+    print(data)
+    print('--------------------------------------------------------')
+  return 'Finished!'
+
+print(get_law(get_links()))
 
